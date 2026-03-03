@@ -207,7 +207,6 @@ if ($script:Prefs.DarkMode) {
     $clrGridLine   = [System.Drawing.Color]::FromArgb(60, 60, 60)
     $clrDetailBg   = [System.Drawing.Color]::FromArgb(45, 45, 45)
     $clrSepLine    = [System.Drawing.Color]::FromArgb(55, 55, 55)
-    $clrInputBdr   = [System.Drawing.Color]::FromArgb(70, 70, 70)
     $clrLogBg      = [System.Drawing.Color]::FromArgb(35, 35, 35)
     $clrLogFg      = [System.Drawing.Color]::FromArgb(200, 200, 200)
     $clrText       = [System.Drawing.Color]::FromArgb(220, 220, 220)
@@ -230,7 +229,6 @@ if ($script:Prefs.DarkMode) {
     $clrGridLine   = [System.Drawing.Color]::FromArgb(230, 230, 230)
     $clrDetailBg   = [System.Drawing.Color]::FromArgb(250, 250, 250)
     $clrSepLine    = [System.Drawing.Color]::FromArgb(218, 220, 224)
-    $clrInputBdr   = [System.Drawing.Color]::FromArgb(200, 200, 200)
     $clrLogBg      = [System.Drawing.Color]::White
     $clrLogFg      = [System.Drawing.Color]::Black
     $clrText       = [System.Drawing.Color]::Black
@@ -1445,7 +1443,7 @@ $tabMain.Add_SelectedIndexChanged({ Invoke-ApplyFilter; Update-StatusBar })
 # Tree population helper
 # ---------------------------------------------------------------------------
 
-function Populate-TreeView {
+function Set-TreeViewData {
     param(
         [object[]]$SupersedenceRoots,
         [object[]]$DependencyRoots
@@ -1677,7 +1675,7 @@ function Invoke-ScanEnvironment {
         [System.Windows.Forms.Application]::DoEvents()
         $supRoots = Build-SupersedenceTree -SupersedenceData $script:SupersedenceData -AppLookup $script:AppLookup
         $depRoots = Build-DependencyTree -DependencyData $script:DependencyData -AppLookup $script:AppLookup
-        Populate-TreeView -SupersedenceRoots $supRoots -DependencyRoots $depRoots
+        Set-TreeViewData -SupersedenceRoots $supRoots -DependencyRoots $depRoots
 
         # Update summary cards
         $script:ScanCounts = Get-ScanSummaryCounts -AppCount $script:AppLookup.Count `
