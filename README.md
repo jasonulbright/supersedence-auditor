@@ -96,7 +96,8 @@ supersedenceauditor/
 ├── start-supersedenceauditor.ps1          # WinForms GUI
 ├── Module/
 │   ├── SupersedenceAuditorCommon.psd1     # Module manifest
-│   └── SupersedenceAuditorCommon.psm1     # Business logic (21 functions)
+│   ├── SupersedenceAuditorCommon.psm1     # Business logic (21 functions)
+│   └── SupersedenceAuditorCommon.Tests.ps1 # Pester 5.x tests (46 tests)
 ├── Logs/                                   # Session logs
 ├── Reports/                                # Export output
 ├── SupersedenceAuditor.prefs.json         # User preferences
@@ -139,6 +140,15 @@ supersedenceauditor/
 - `Export-AuditCsv` -- DataTable to CSV
 - `Export-AuditHtml` -- DataTable to styled HTML report
 - `New-AuditSummaryText` -- plain text summary for clipboard
+
+## Tests
+
+46 Pester 5.x tests covering all module functions. No MECM, WMI, or admin elevation required.
+
+```powershell
+cd Module
+Invoke-Pester .\SupersedenceAuditorCommon.Tests.ps1
+```
 
 ## License
 
