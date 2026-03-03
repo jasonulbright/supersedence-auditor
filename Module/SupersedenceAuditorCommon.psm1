@@ -201,7 +201,7 @@ function Get-AllApplicationSummary {
     $lookup = @{}
     foreach ($app in $raw) {
         $lookup[$app.CI_ID] = [PSCustomObject]@{
-            CI_ID                  = [uint32]$app.CI_ID
+            CI_ID                  = [int]$app.CI_ID
             LocalizedDisplayName   = [string]$app.LocalizedDisplayName
             SoftwareVersion        = [string]$app.SoftwareVersion
             Manufacturer           = [string]$app.Manufacturer
@@ -210,8 +210,8 @@ function Get-AllApplicationSummary {
             IsSuperseded           = [bool]$app.IsSuperseded
             IsSuperseding          = [bool]$app.IsSuperseding
             HasContent             = [bool]$app.HasContent
-            NumberOfDeploymentTypes = [uint32]$app.NumberOfDeploymentTypes
-            NumberOfDeployments    = [uint32]$app.NumberOfDeployments
+            NumberOfDeploymentTypes = [int]$app.NumberOfDeploymentTypes
+            NumberOfDeployments    = [int]$app.NumberOfDeployments
             DateCreated            = $app.DateCreated
             DateLastModified       = $app.DateLastModified
             CreatedBy              = [string]$app.CreatedBy
@@ -245,7 +245,7 @@ function Get-AllDeploymentTypeSummary {
     $lookup = @{}
     foreach ($dt in $raw) {
         $lookup[$dt.CI_ID] = [PSCustomObject]@{
-            CI_ID                = [uint32]$dt.CI_ID
+            CI_ID                = [int]$dt.CI_ID
             LocalizedDisplayName = [string]$dt.LocalizedDisplayName
             ModelName            = [string]$dt.ModelName
         }
@@ -307,10 +307,10 @@ function Resolve-RelationshipData {
         $relType = [int]$rel.RelationType
         if ($relType -notin $relevantTypes) { continue }
 
-        $fromAppCIID = [uint32]$rel.FromApplicationCIID
-        $toAppCIID   = [uint32]$rel.ToApplicationCIID
-        $fromDTCIID  = [uint32]$rel.FromDeploymentTypeCIID
-        $toDTCIID    = [uint32]$rel.ToDeploymentTypeCIID
+        $fromAppCIID = [int]$rel.FromApplicationCIID
+        $toAppCIID   = [int]$rel.ToApplicationCIID
+        $fromDTCIID  = [int]$rel.FromDeploymentTypeCIID
+        $toDTCIID    = [int]$rel.ToDeploymentTypeCIID
 
         $fromApp = if ($AppLookup.ContainsKey($fromAppCIID)) { $AppLookup[$fromAppCIID] } else { $null }
         $toApp   = if ($AppLookup.ContainsKey($toAppCIID))   { $AppLookup[$toAppCIID] }   else { $null }
@@ -332,7 +332,7 @@ function Resolve-RelationshipData {
             ToDTName         = if ($toDT) { $toDT.LocalizedDisplayName } else { '' }
             RelationType     = $relType
             RelationTypeName = if ($relationTypeNames.ContainsKey($relType)) { $relationTypeNames[$relType] } else { "Type $relType" }
-            Level            = [uint32]$rel.Level
+            Level            = [int]$rel.Level
         }
     }
 
@@ -370,7 +370,7 @@ function Find-SupersedenceChains {
     # BFS from each superseding app to compute chain depth
     $depthCache = @{}
     function Get-ChainDepth {
-        param([uint32]$AppCIID, [hashtable]$Adj, [hashtable]$Cache, [hashtable]$Visiting)
+        param([int]$AppCIID, [hashtable]$Adj, [hashtable]$Cache, [hashtable]$Visiting)
         if ($Cache.ContainsKey($AppCIID)) { return $Cache[$AppCIID] }
         if ($Visiting.ContainsKey($AppCIID)) { return -1 }  # circular
         $Visiting[$AppCIID] = $true
@@ -552,7 +552,7 @@ function Find-BrokenSupersedence {
     $circularFound = @{}
 
     function Test-Circular {
-        param([uint32]$Node)
+        param([int]$Node)
         if ($inStack.ContainsKey($Node)) {
             if (-not $circularFound.ContainsKey($Node)) {
                 $circularFound[$Node] = $true
@@ -672,7 +672,7 @@ function Find-BrokenDependencies {
     $circularFound = @{}
 
     function Test-DepCircular {
-        param([uint32]$Node)
+        param([int]$Node)
         if ($inStack.ContainsKey($Node)) {
             if (-not $circularFound.ContainsKey($Node)) {
                 $circularFound[$Node] = $true

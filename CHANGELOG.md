@@ -2,6 +2,18 @@
 
 All notable changes to the Supersedence & Dependency Auditor are documented in this file.
 
+## [1.0.1] - 2026-03-03
+
+### Added
+- `SupersedenceAuditorCommon.Tests.ps1` -- Pester 5.x test suite (46 tests); covers Write-Log, Initialize-Logging, Resolve-RelationshipData (type filtering, name resolution, orphaned CI_IDs), Find-SupersedenceChains (chain depth, expired target, disabled source, orphaned reference), Find-DependencyGroups (Required/Optional/AppDependence classification, all 4 broken statuses), Find-BrokenSupersedence, Find-BrokenDependencies, Find-UndocumentedRelationships, Get-ScanSummaryCounts, Build-SupersedenceTree, Build-DependencyTree, Export-AuditCsv, Export-AuditHtml, New-AuditSummaryText, and empty data edge cases; uses `$TestDrive` for all file I/O
+
+### Fixed
+- Hashtable key type mismatch in module -- changed `[uint32]` casts to `[int]` throughout; PowerShell hashtables treat `[int]100` and `[uint32]100` as different keys, causing CI_ID lookups to fail silently
+- Tree View SplitContainer `Panel2MinSize` constraint error -- `SplitterDistance` now set after control is parented (after `Controls.Add`) so actual width is available for validation
+- Suppressed unapproved verb warning on module import (`-DisableNameChecking`)
+
+---
+
 ## [1.0.0] - 2026-03-03
 
 ### Added
