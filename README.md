@@ -2,6 +2,8 @@
 
 A WinForms-based PowerShell GUI for auditing all application supersedence and dependency relationships in an MECM (Configuration Manager) environment. Discovers relationships via bulk WMI queries, detects broken rules, and visualizes hierarchies in a tree view.
 
+![Supersedence & Dependency Auditor](screenshot.png)
+
 ## Requirements
 
 - Windows 10/11
