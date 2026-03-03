@@ -1241,14 +1241,14 @@ $tabMain.TabPages.Add($tabTreeView)
 $splitTree = New-Object System.Windows.Forms.SplitContainer
 $splitTree.Dock = [System.Windows.Forms.DockStyle]::Fill
 $splitTree.Orientation = [System.Windows.Forms.Orientation]::Vertical
-$splitTree.SplitterDistance = 500
 $splitTree.SplitterWidth = 6
 $splitTree.BackColor = $clrSepLine
 $splitTree.Panel1.BackColor = $clrPanelBg
 $splitTree.Panel2.BackColor = $clrPanelBg
-$splitTree.Panel1MinSize = 150
-$splitTree.Panel2MinSize = 150
+$splitTree.Panel1MinSize = 100
+$splitTree.Panel2MinSize = 100
 $tabTreeView.Controls.Add($splitTree)
+$splitTree.SplitterDistance = [Math]::Max($splitTree.Panel1MinSize, [int]($splitTree.Width * 0.5))
 
 $treeView = New-Object System.Windows.Forms.TreeView
 $treeView.Dock = [System.Windows.Forms.DockStyle]::Fill
