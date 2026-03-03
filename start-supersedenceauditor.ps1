@@ -43,7 +43,7 @@ Add-Type -AssemblyName System.Drawing
 try { [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) } catch { }
 
 $moduleRoot = Join-Path $PSScriptRoot "Module"
-Import-Module (Join-Path $moduleRoot "SupersedenceAuditorCommon.psd1") -Force
+Import-Module (Join-Path $moduleRoot "SupersedenceAuditorCommon.psd1") -Force -DisableNameChecking
 
 # Initialize tool logging
 $toolLogFolder = Join-Path $PSScriptRoot "Logs"
@@ -1246,8 +1246,8 @@ $splitTree.SplitterWidth = 6
 $splitTree.BackColor = $clrSepLine
 $splitTree.Panel1.BackColor = $clrPanelBg
 $splitTree.Panel2.BackColor = $clrPanelBg
-$splitTree.Panel1MinSize = 200
-$splitTree.Panel2MinSize = 200
+$splitTree.Panel1MinSize = 150
+$splitTree.Panel2MinSize = 150
 $tabTreeView.Controls.Add($splitTree)
 
 $treeView = New-Object System.Windows.Forms.TreeView
