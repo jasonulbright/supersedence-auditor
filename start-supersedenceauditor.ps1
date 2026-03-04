@@ -1012,8 +1012,8 @@ $gridSupersedence.Add_SelectionChanged({
         "Status:      $($row['Status'])"
     )
 
-    $supCIID = [uint32]$row['SupersedingCIID']
-    $sedCIID = [uint32]$row['SupersededCIID']
+    $supCIID = [int]$row['SupersedingCIID']
+    $sedCIID = [int]$row['SupersededCIID']
     if ($script:AppLookup.ContainsKey($supCIID)) {
         $app = $script:AppLookup[$supCIID]
         $lines += ""
@@ -1124,7 +1124,7 @@ $gridDependencies.Add_SelectionChanged({
         "Status:     $($row['Status'])"
     )
 
-    $depCIID = [uint32]$row['DependencyCIID']
+    $depCIID = [int]$row['DependencyCIID']
     if ($script:AppLookup.ContainsKey($depCIID)) {
         $app = $script:AppLookup[$depCIID]
         $lines += ""
@@ -1279,7 +1279,7 @@ $treeView.Add_AfterSelect({
     $node = $e.Node
     if (-not $node -or -not $node.Tag) { $txtTreeDetail.Text = ''; return }
 
-    $ciid = [uint32]$node.Tag
+    $ciid = [int]$node.Tag
     if (-not $script:AppLookup.ContainsKey($ciid)) {
         $txtTreeDetail.Text = "Application CI_ID: $ciid (not found in current scan)"
         return
