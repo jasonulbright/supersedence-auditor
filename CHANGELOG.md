@@ -2,6 +2,13 @@
 
 All notable changes to the Supersedence & Dependency Auditor are documented in this file.
 
+## [1.0.2] - 2026-03-04
+
+### Fixed
+- Remaining `[uint32]` casts in UI detail panels (lines 1015, 1016, 1127, 1282) -- the v1.0.1 module fix changed hashtable keys to `[int]` but missed 4 lookup casts in the GUI, causing detail panels to silently show nothing on selection
+
+---
+
 ## [1.0.1] - 2026-03-03
 
 ### Added
