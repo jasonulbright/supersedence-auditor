@@ -2,6 +2,22 @@
 
 All notable changes to the Supersedence & Dependency Auditor are documented in this file.
 
+## [1.1.0] - 2026-03-11
+
+### Changed
+- **Replaced all direct WMI queries with supported ConfigurationManager PowerShell cmdlets** -- eliminates WS-Management/DCOM connectivity issues (0x80041001) by using the established CM PSDrive instead of raw `Get-CimInstance` calls
+  - `Get-AllApplicationSummary` now uses `Get-CMApplication -Fast` (was `Get-CimInstance ... SMS_Application`)
+  - New `Get-AllResolvedRelationships` uses `Get-CMDeploymentType`, `Get-CMDeploymentTypeSupersedence`, `Get-CMDeploymentTypeDependencyGroup`, and `Get-CMDeploymentTypeDependency` to discover all relationships
+- Module export count reduced from 21 to 18 functions (3 WMI functions consolidated into 1 CM cmdlet function)
+
+### Removed
+- `Get-AllDeploymentTypeSummary` -- was bulk WMI query against `SMS_ConfigurationItemLatestBaseClass`; no longer needed
+- `Get-AllRelationships` -- was bulk WMI query against `SMS_AppRelation_Flat`; replaced by CM cmdlet pipeline
+- `Resolve-RelationshipData` -- was the WMI join/enrichment layer; now handled internally by `Get-AllResolvedRelationships`
+- `Resolve-RelationshipData` Pester tests (function removed; downstream analysis tests remain unchanged)
+
+---
+
 ## [1.0.2] - 2026-03-04
 
 ### Fixed
@@ -52,11 +68,10 @@ All notable changes to the Supersedence & Dependency Auditor are documented in t
   - Missing Content (dependency target has no content)
   - Undocumented (app participates in relationships but has no Manufacturer set)
 
-- **Core module** (`SupersedenceAuditorCommon.psm1`) with 21 exported functions
+- **Core module** (`SupersedenceAuditorCommon.psm1`)
   - Structured logging (Initialize-Logging, Write-Log)
   - CM site connection management (Connect-CMSite, Disconnect-CMSite, Test-CMConnection)
-  - WMI bulk discovery (Get-AllApplicationSummary, Get-AllDeploymentTypeSummary, Get-AllRelationships)
-  - Relationship resolution (Resolve-RelationshipData)
+  - Data discovery (Get-AllApplicationSummary, Get-AllResolvedRelationships)
   - Analysis (Find-SupersedenceChains, Find-DependencyGroups, Find-BrokenSupersedence, Find-BrokenDependencies, Find-UndocumentedRelationships, Get-ScanSummaryCounts)
   - Tree building (Build-SupersedenceTree, Build-DependencyTree)
   - Export (Export-AuditCsv, Export-AuditHtml, New-AuditSummaryText)

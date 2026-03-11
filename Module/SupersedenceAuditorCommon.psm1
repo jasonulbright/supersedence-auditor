@@ -175,33 +175,28 @@ function Test-CMConnection {
 }
 
 # ---------------------------------------------------------------------------
-# WMI Bulk Discovery
+# CM Data Discovery
 # ---------------------------------------------------------------------------
 
 function Get-AllApplicationSummary {
     <#
     .SYNOPSIS
-        Bulk WMI query for all latest-revision applications.
+        Queries all applications via the ConfigurationManager module.
     .DESCRIPTION
-        Returns a hashtable keyed by CI_ID for O(1) lookup during relationship resolution.
+        Uses Get-CMApplication -Fast to retrieve all applications through the
+        established CM PSDrive. Returns a hashtable keyed by CI_ID for O(1)
+        lookup during relationship resolution.
     #>
-    param(
-        [Parameter(Mandatory)][string]$SMSProvider,
-        [Parameter(Mandatory)][string]$SiteCode
-    )
 
-    Write-Log "Querying all applications (SMS_Application WHERE IsLatest = TRUE)..."
+    Write-Log "Querying all applications (Get-CMApplication -Fast)..."
 
-    $raw = Get-CimInstance -ComputerName $SMSProvider `
-        -Namespace "root\SMS\site_$SiteCode" `
-        -ClassName SMS_Application `
-        -Filter "IsLatest = TRUE" `
-        -ErrorAction Stop
+    $raw = @(Get-CMApplication -Fast -ErrorAction Stop)
 
     $lookup = @{}
     foreach ($app in $raw) {
-        $lookup[$app.CI_ID] = [PSCustomObject]@{
+        $lookup[[int]$app.CI_ID] = [PSCustomObject]@{
             CI_ID                  = [int]$app.CI_ID
+            ModelName              = [string]$app.ModelName
             LocalizedDisplayName   = [string]$app.LocalizedDisplayName
             SoftwareVersion        = [string]$app.SoftwareVersion
             Manufacturer           = [string]$app.Manufacturer
@@ -223,121 +218,109 @@ function Get-AllApplicationSummary {
     return $lookup
 }
 
-function Get-AllDeploymentTypeSummary {
+function Get-AllResolvedRelationships {
     <#
     .SYNOPSIS
-        Bulk WMI query for all latest-revision deployment types.
+        Discovers all supersedence and dependency relationships via CM cmdlets.
     .DESCRIPTION
-        Returns a hashtable keyed by CI_ID for O(1) lookup during relationship resolution.
+        Iterates applications using Get-CMDeploymentType, Get-CMDeploymentTypeSupersedence,
+        Get-CMDeploymentTypeDependencyGroup, and Get-CMDeploymentTypeDependency to build
+        enriched relationship records. Returns the same object shape consumed by
+        Find-SupersedenceChains, Find-DependencyGroups, and related analysis functions.
     #>
     param(
-        [Parameter(Mandatory)][string]$SMSProvider,
-        [Parameter(Mandatory)][string]$SiteCode
+        [Parameter(Mandatory)][hashtable]$AppLookup
     )
 
-    Write-Log "Querying all deployment types..."
+    # Build ModelName -> App index for resolving DT parent apps
+    $modelToApp = @{}
+    foreach ($app in $AppLookup.Values) {
+        if ($app.ModelName) { $modelToApp[$app.ModelName] = $app }
+    }
 
-    $raw = Get-CimInstance -ComputerName $SMSProvider `
-        -Namespace "root\SMS\site_$SiteCode" `
-        -Query "SELECT CI_ID, LocalizedDisplayName, ModelName FROM SMS_ConfigurationItemLatestBaseClass WHERE CIType_ID = 21 AND IsLatest = TRUE" `
-        -ErrorAction Stop
+    $results = [System.Collections.Generic.List[object]]::new()
 
-    $lookup = @{}
-    foreach ($dt in $raw) {
-        $lookup[$dt.CI_ID] = [PSCustomObject]@{
-            CI_ID                = [int]$dt.CI_ID
-            LocalizedDisplayName = [string]$dt.LocalizedDisplayName
-            ModelName            = [string]$dt.ModelName
+    # Only iterate apps that have deployment types
+    $appsWithDTs = @($AppLookup.Values | Where-Object { $_.NumberOfDeploymentTypes -gt 0 })
+    Write-Log "Checking $($appsWithDTs.Count) applications for relationships..."
+
+    foreach ($app in $appsWithDTs) {
+        $dts = @(Get-CMDeploymentType -ApplicationName $app.LocalizedDisplayName -ErrorAction SilentlyContinue)
+
+        foreach ($dt in $dts) {
+            # --- Supersedence (only for apps flagged as superseding) ---
+            if ($app.IsSuperseding) {
+                $supersededDTs = @(Get-CMDeploymentTypeSupersedence -InputObject $dt -ErrorAction SilentlyContinue)
+                foreach ($sDT in $supersededDTs) {
+                    $toApp = $null
+                    $sModelName = [string]$sDT.AppModelName
+                    if ($sModelName -and $modelToApp.ContainsKey($sModelName)) {
+                        $toApp = $modelToApp[$sModelName]
+                    }
+
+                    $results.Add([PSCustomObject]@{
+                        FromAppCIID      = [int]$app.CI_ID
+                        FromAppName      = $app.LocalizedDisplayName
+                        FromAppVersion   = $app.SoftwareVersion
+                        FromAppExists    = $true
+                        FromDTCIID       = [int]$dt.CI_ID
+                        FromDTName       = [string]$dt.LocalizedDisplayName
+                        ToAppCIID        = if ($toApp) { [int]$toApp.CI_ID } else { 0 }
+                        ToAppName        = if ($toApp) { $toApp.LocalizedDisplayName } else { "Unknown (DT: $($sDT.LocalizedDisplayName))" }
+                        ToAppVersion     = if ($toApp) { $toApp.SoftwareVersion } else { '' }
+                        ToAppExists      = ($null -ne $toApp)
+                        ToDTCIID         = [int]$sDT.CI_ID
+                        ToDTName         = [string]$sDT.LocalizedDisplayName
+                        RelationType     = 6
+                        RelationTypeName = 'Superseded'
+                        Level            = 0
+                    })
+                }
+            }
+
+            # --- Dependencies (check all apps) ---
+            $groups = @(Get-CMDeploymentTypeDependencyGroup -InputObject $dt -ErrorAction SilentlyContinue)
+            foreach ($group in $groups) {
+                $deps = @(Get-CMDeploymentTypeDependency -InputObject $group -ErrorAction SilentlyContinue)
+                foreach ($dep in $deps) {
+                    $depApp = $null
+                    $depModelName = [string]$dep.AppModelName
+                    if ($depModelName -and $modelToApp.ContainsKey($depModelName)) {
+                        $depApp = $modelToApp[$depModelName]
+                    }
+
+                    # Determine Required vs Optional if the property is exposed
+                    $relType = 10
+                    $relTypeName = 'AppDependence'
+                    if ($dep.PSObject.Properties['IsRequired']) {
+                        if ($dep.IsRequired) { $relType = 2; $relTypeName = 'Required' }
+                        else                 { $relType = 4; $relTypeName = 'Optional' }
+                    }
+
+                    $results.Add([PSCustomObject]@{
+                        FromAppCIID      = [int]$app.CI_ID
+                        FromAppName      = $app.LocalizedDisplayName
+                        FromAppVersion   = $app.SoftwareVersion
+                        FromAppExists    = $true
+                        FromDTCIID       = [int]$dt.CI_ID
+                        FromDTName       = [string]$dt.LocalizedDisplayName
+                        ToAppCIID        = if ($depApp) { [int]$depApp.CI_ID } else { 0 }
+                        ToAppName        = if ($depApp) { $depApp.LocalizedDisplayName } else { "Unknown (DT: $($dep.LocalizedDisplayName))" }
+                        ToAppVersion     = if ($depApp) { $depApp.SoftwareVersion } else { '' }
+                        ToAppExists      = ($null -ne $depApp)
+                        ToDTCIID         = [int]$dep.CI_ID
+                        ToDTName         = [string]$dep.LocalizedDisplayName
+                        RelationType     = $relType
+                        RelationTypeName = $relTypeName
+                        Level            = 0
+                    })
+                }
+            }
         }
     }
 
-    Write-Log "Loaded $($lookup.Count) deployment types into lookup"
-    return $lookup
-}
-
-function Get-AllRelationships {
-    <#
-    .SYNOPSIS
-        Bulk WMI query for all application relationship records.
-    .DESCRIPTION
-        Returns raw SMS_AppRelation_Flat records. Single query captures all
-        supersedence and dependency relationships in the environment.
-    #>
-    param(
-        [Parameter(Mandatory)][string]$SMSProvider,
-        [Parameter(Mandatory)][string]$SiteCode
-    )
-
-    Write-Log "Querying all relationships (SMS_AppRelation_Flat)..."
-
-    $raw = Get-CimInstance -ComputerName $SMSProvider `
-        -Namespace "root\SMS\site_$SiteCode" `
-        -ClassName SMS_AppRelation_Flat `
-        -ErrorAction Stop
-
-    Write-Log "Loaded $(@($raw).Count) raw relationship records"
-    return $raw
-}
-
-function Resolve-RelationshipData {
-    <#
-    .SYNOPSIS
-        Joins raw SMS_AppRelation_Flat records with app/DT lookups for friendly names.
-    .DESCRIPTION
-        Filters to relevant RelationTypes (2, 4, 6, 10, 15) and enriches each
-        record with application and deployment type names from the lookup hashtables.
-    #>
-    param(
-        [Parameter(Mandatory)][object[]]$RawRelationships,
-        [Parameter(Mandatory)][hashtable]$AppLookup,
-        [Parameter(Mandatory)][hashtable]$DTLookup
-    )
-
-    $relationTypeNames = @{
-        2  = 'Required'
-        4  = 'Optional'
-        6  = 'Superseded'
-        10 = 'AppDependence'
-        15 = 'ApplicationSuperSeded'
-    }
-
-    $relevantTypes = @(2, 4, 6, 10, 15)
-
-    $results = foreach ($rel in $RawRelationships) {
-        $relType = [int]$rel.RelationType
-        if ($relType -notin $relevantTypes) { continue }
-
-        $fromAppCIID = [int]$rel.FromApplicationCIID
-        $toAppCIID   = [int]$rel.ToApplicationCIID
-        $fromDTCIID  = [int]$rel.FromDeploymentTypeCIID
-        $toDTCIID    = [int]$rel.ToDeploymentTypeCIID
-
-        $fromApp = if ($AppLookup.ContainsKey($fromAppCIID)) { $AppLookup[$fromAppCIID] } else { $null }
-        $toApp   = if ($AppLookup.ContainsKey($toAppCIID))   { $AppLookup[$toAppCIID] }   else { $null }
-        $fromDT  = if ($DTLookup.ContainsKey($fromDTCIID))   { $DTLookup[$fromDTCIID] }   else { $null }
-        $toDT    = if ($DTLookup.ContainsKey($toDTCIID))     { $DTLookup[$toDTCIID] }     else { $null }
-
-        [PSCustomObject]@{
-            FromAppCIID      = $fromAppCIID
-            FromAppName      = if ($fromApp) { $fromApp.LocalizedDisplayName } else { "Unknown (CI_ID: $fromAppCIID)" }
-            FromAppVersion   = if ($fromApp) { $fromApp.SoftwareVersion } else { '' }
-            FromAppExists    = ($null -ne $fromApp)
-            FromDTCIID       = $fromDTCIID
-            FromDTName       = if ($fromDT) { $fromDT.LocalizedDisplayName } else { '' }
-            ToAppCIID        = $toAppCIID
-            ToAppName        = if ($toApp) { $toApp.LocalizedDisplayName } else { "Unknown (CI_ID: $toAppCIID)" }
-            ToAppVersion     = if ($toApp) { $toApp.SoftwareVersion } else { '' }
-            ToAppExists      = ($null -ne $toApp)
-            ToDTCIID         = $toDTCIID
-            ToDTName         = if ($toDT) { $toDT.LocalizedDisplayName } else { '' }
-            RelationType     = $relType
-            RelationTypeName = if ($relationTypeNames.ContainsKey($relType)) { $relationTypeNames[$relType] } else { "Type $relType" }
-            Level            = [int]$rel.Level
-        }
-    }
-
-    Write-Log "Resolved $(@($results).Count) relevant relationships"
-    return $results
+    Write-Log "Resolved $($results.Count) relationships via CM cmdlets"
+    return @($results)
 }
 
 # ---------------------------------------------------------------------------
