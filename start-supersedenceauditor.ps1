@@ -1335,7 +1335,7 @@ $tabMain.BringToFront()
 # ---------------------------------------------------------------------------
 
 $script:AppLookup          = @{}
-$script:DTLookup           = @{}
+$script:DTLookup           = $null
 $script:SupersedenceData   = @()
 $script:DependencyData     = @()
 $script:BrokenData         = @()
@@ -1584,33 +1584,19 @@ function Invoke-ScanEnvironment {
         $treeView.Nodes.Clear()
         [System.Windows.Forms.Application]::DoEvents()
 
-        # WMI Query 1: Applications
+        # Query applications via CM cmdlets
         Add-LogLine -TextBox $txtLog -Message "Querying all applications..."
         [System.Windows.Forms.Application]::DoEvents()
-        $script:AppLookup = Get-AllApplicationSummary -SMSProvider $script:Prefs.SMSProvider -SiteCode $script:Prefs.SiteCode
+        $script:AppLookup = Get-AllApplicationSummary
         Add-LogLine -TextBox $txtLog -Message "Loaded $($script:AppLookup.Count) applications"
         [System.Windows.Forms.Application]::DoEvents()
 
-        # WMI Query 2: Deployment Types
-        Add-LogLine -TextBox $txtLog -Message "Querying deployment types..."
+        # Discover relationships via CM cmdlets
+        Add-LogLine -TextBox $txtLog -Message "Discovering relationships (supersedence and dependencies)..."
         [System.Windows.Forms.Application]::DoEvents()
-        $script:DTLookup = Get-AllDeploymentTypeSummary -SMSProvider $script:Prefs.SMSProvider -SiteCode $script:Prefs.SiteCode
-        Add-LogLine -TextBox $txtLog -Message "Loaded $($script:DTLookup.Count) deployment types"
-        [System.Windows.Forms.Application]::DoEvents()
-
-        # WMI Query 3: Relationships
-        Add-LogLine -TextBox $txtLog -Message "Querying all relationships..."
-        [System.Windows.Forms.Application]::DoEvents()
-        $rawRelationships = Get-AllRelationships -SMSProvider $script:Prefs.SMSProvider -SiteCode $script:Prefs.SiteCode
-        Add-LogLine -TextBox $txtLog -Message "Loaded $(@($rawRelationships).Count) raw relationship records"
-        [System.Windows.Forms.Application]::DoEvents()
-
-        # Resolve relationships
-        Add-LogLine -TextBox $txtLog -Message "Resolving relationships..."
-        [System.Windows.Forms.Application]::DoEvents()
-        $resolved = Resolve-RelationshipData -RawRelationships $rawRelationships -AppLookup $script:AppLookup -DTLookup $script:DTLookup
+        $resolved = Get-AllResolvedRelationships -AppLookup $script:AppLookup
         if (-not $resolved) { $resolved = @() }
-        Add-LogLine -TextBox $txtLog -Message "Resolved $(@($resolved).Count) relevant relationships"
+        Add-LogLine -TextBox $txtLog -Message "Resolved $(@($resolved).Count) relationships"
         [System.Windows.Forms.Application]::DoEvents()
 
         # Find supersedence chains

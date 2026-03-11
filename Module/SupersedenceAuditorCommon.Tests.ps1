@@ -83,80 +83,9 @@ Describe 'Initialize-Logging' {
 }
 
 # ============================================================================
-# Resolve-RelationshipData
+# Note: Get-AllResolvedRelationships requires CM cmdlets (integration test).
+# The downstream analysis functions are tested with mock resolved objects below.
 # ============================================================================
-
-Describe 'Resolve-RelationshipData' {
-    BeforeAll {
-        $appLookup = @{
-            1001 = [PSCustomObject]@{ CI_ID = 1001; LocalizedDisplayName = 'App Alpha'; SoftwareVersion = '1.0'; Manufacturer = 'Vendor A'; IsEnabled = $true; IsExpired = $false; IsSuperseded = $false; IsSuperseding = $true; HasContent = $true; NumberOfDeploymentTypes = 1; NumberOfDeployments = 2; DateCreated = (Get-Date); DateLastModified = (Get-Date); CreatedBy = 'admin'; LastModifiedBy = 'admin' }
-            1002 = [PSCustomObject]@{ CI_ID = 1002; LocalizedDisplayName = 'App Beta'; SoftwareVersion = '2.0'; Manufacturer = 'Vendor B'; IsEnabled = $true; IsExpired = $true; IsSuperseded = $true; IsSuperseding = $false; HasContent = $true; NumberOfDeploymentTypes = 1; NumberOfDeployments = 1; DateCreated = (Get-Date); DateLastModified = (Get-Date); CreatedBy = 'admin'; LastModifiedBy = 'admin' }
-            1003 = [PSCustomObject]@{ CI_ID = 1003; LocalizedDisplayName = 'App Gamma'; SoftwareVersion = '3.0'; Manufacturer = ''; IsEnabled = $true; IsExpired = $false; IsSuperseded = $false; IsSuperseding = $false; HasContent = $false; NumberOfDeploymentTypes = 1; NumberOfDeployments = 0; DateCreated = (Get-Date); DateLastModified = (Get-Date); CreatedBy = 'admin'; LastModifiedBy = 'admin' }
-            1004 = [PSCustomObject]@{ CI_ID = 1004; LocalizedDisplayName = 'App Delta'; SoftwareVersion = '4.0'; Manufacturer = 'Vendor D'; IsEnabled = $false; IsExpired = $false; IsSuperseded = $false; IsSuperseding = $true; HasContent = $true; NumberOfDeploymentTypes = 1; NumberOfDeployments = 1; DateCreated = (Get-Date); DateLastModified = (Get-Date); CreatedBy = 'admin'; LastModifiedBy = 'admin' }
-        }
-
-        $dtLookup = @{
-            2001 = [PSCustomObject]@{ CI_ID = 2001; LocalizedDisplayName = 'Alpha DT'; ModelName = 'ModelA' }
-            2002 = [PSCustomObject]@{ CI_ID = 2002; LocalizedDisplayName = 'Beta DT'; ModelName = 'ModelB' }
-            2003 = [PSCustomObject]@{ CI_ID = 2003; LocalizedDisplayName = 'Gamma DT'; ModelName = 'ModelC' }
-        }
-
-        # Mock raw SMS_AppRelation_Flat records
-        $rawRelationships = @(
-            # Supersedence: Alpha supersedes Beta (RelationType 6)
-            [PSCustomObject]@{ FromApplicationCIID = 1001; ToApplicationCIID = 1002; FromDeploymentTypeCIID = 2001; ToDeploymentTypeCIID = 2002; RelationType = 6; Level = 0 }
-            # Dependency: Alpha depends on Gamma (RelationType 2 = Required)
-            [PSCustomObject]@{ FromApplicationCIID = 1001; ToApplicationCIID = 1003; FromDeploymentTypeCIID = 2001; ToDeploymentTypeCIID = 2003; RelationType = 2; Level = 0 }
-            # Irrelevant type (7 = Self) -- should be filtered out
-            [PSCustomObject]@{ FromApplicationCIID = 1001; ToApplicationCIID = 1001; FromDeploymentTypeCIID = 2001; ToDeploymentTypeCIID = 2001; RelationType = 7; Level = 0 }
-            # Orphaned: references app CI_ID 9999 that doesn't exist
-            [PSCustomObject]@{ FromApplicationCIID = 1001; ToApplicationCIID = 9999; FromDeploymentTypeCIID = 2001; ToDeploymentTypeCIID = 0; RelationType = 10; Level = 0 }
-        )
-
-        $script:resolvedLog = Join-Path $TestDrive 'resolve.log'
-        Initialize-Logging -LogPath $script:resolvedLog
-        $script:resolved = Resolve-RelationshipData -RawRelationships $rawRelationships -AppLookup $appLookup -DTLookup $dtLookup
-    }
-
-    It 'filters out irrelevant RelationTypes' {
-        # Type 7 (Self) should not be in results
-        $selfRels = $script:resolved | Where-Object { $_.RelationType -eq 7 }
-        $selfRels | Should -BeNullOrEmpty
-    }
-
-    It 'resolves supersedence relationships (type 6)' {
-        $supRels = @($script:resolved | Where-Object { $_.RelationType -eq 6 })
-        $supRels.Count | Should -Be 1
-        $supRels[0].FromAppName | Should -Be 'App Alpha'
-        $supRels[0].ToAppName | Should -Be 'App Beta'
-    }
-
-    It 'resolves dependency relationships (type 2)' {
-        $depRels = @($script:resolved | Where-Object { $_.RelationType -eq 2 })
-        $depRels.Count | Should -Be 1
-        $depRels[0].FromAppName | Should -Be 'App Alpha'
-        $depRels[0].ToAppName | Should -Be 'App Gamma'
-    }
-
-    It 'marks unknown CI_IDs as not existing' {
-        $orphaned = @($script:resolved | Where-Object { $_.ToAppCIID -eq 9999 })
-        $orphaned.Count | Should -Be 1
-        $orphaned[0].ToAppExists | Should -BeFalse
-        $orphaned[0].ToAppName | Should -Match 'Unknown.*9999'
-    }
-
-    It 'sets FromAppExists correctly for known apps' {
-        $script:resolved | ForEach-Object {
-            if ($_.FromAppCIID -eq 1001) { $_.FromAppExists | Should -BeTrue }
-        }
-    }
-
-    It 'maps RelationTypeName correctly' {
-        ($script:resolved | Where-Object { $_.RelationType -eq 6 }).RelationTypeName | Should -Be 'Superseded'
-        ($script:resolved | Where-Object { $_.RelationType -eq 2 }).RelationTypeName | Should -Be 'Required'
-        ($script:resolved | Where-Object { $_.RelationType -eq 10 }).RelationTypeName | Should -Be 'AppDependence'
-    }
-}
 
 # ============================================================================
 # Find-SupersedenceChains

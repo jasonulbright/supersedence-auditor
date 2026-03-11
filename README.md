@@ -1,6 +1,6 @@
 # Supersedence & Dependency Auditor
 
-A WinForms-based PowerShell GUI for auditing all application supersedence and dependency relationships in an MECM (Configuration Manager) environment. Discovers relationships via bulk WMI queries, detects broken rules, and visualizes hierarchies in a tree view.
+A WinForms-based PowerShell GUI for auditing all application supersedence and dependency relationships in an MECM (Configuration Manager) environment. Discovers relationships via the supported ConfigurationManager PowerShell module cmdlets, detects broken rules, and visualizes hierarchies in a tree view.
 
 ![Supersedence & Dependency Auditor](screenshot.png)
 
@@ -10,7 +10,7 @@ A WinForms-based PowerShell GUI for auditing all application supersedence and de
 - PowerShell 5.1
 - .NET Framework 4.8+
 - Configuration Manager console installed (provides the ConfigurationManager PowerShell module)
-- WMI access to the SMS Provider server
+- Network access to the SMS Provider server (via CM PSDrive)
 
 ## Quick Start
 
@@ -24,13 +24,13 @@ powershell -ExecutionPolicy Bypass -File start-supersedenceauditor.ps1
 
 ## Features
 
-### Bulk WMI Scan
+### CM Cmdlet Discovery
 
-Three WMI queries load the entire relationship graph in seconds:
+Uses supported ConfigurationManager PowerShell module cmdlets through the established CM PSDrive:
 
-- All applications (`SMS_Application WHERE IsLatest = TRUE`)
-- All deployment types (`SMS_ConfigurationItemLatestBaseClass WHERE CIType_ID = 21`)
-- All relationships (`SMS_AppRelation_Flat`)
+- `Get-CMApplication -Fast` for all applications
+- `Get-CMDeploymentType` / `Get-CMDeploymentTypeSupersedence` for supersedence relationships
+- `Get-CMDeploymentTypeDependencyGroup` / `Get-CMDeploymentTypeDependency` for dependency relationships
 
 CI_IDs are resolved to friendly names via O(1) hashtable lookups.
 
@@ -98,7 +98,7 @@ supersedenceauditor/
 ├── start-supersedenceauditor.ps1          # WinForms GUI
 ├── Module/
 │   ├── SupersedenceAuditorCommon.psd1     # Module manifest
-│   ├── SupersedenceAuditorCommon.psm1     # Business logic (21 functions)
+│   ├── SupersedenceAuditorCommon.psm1     # Business logic (18 functions)
 │   └── SupersedenceAuditorCommon.Tests.ps1 # Pester 5.x tests (46 tests)
 ├── Logs/                                   # Session logs
 ├── Reports/                                # Export output
@@ -120,11 +120,9 @@ supersedenceauditor/
 - `Disconnect-CMSite` -- restore original location
 - `Test-CMConnection` -- check if connected
 
-### WMI Discovery
-- `Get-AllApplicationSummary` -- bulk load all apps into hashtable
-- `Get-AllDeploymentTypeSummary` -- bulk load all DTs into hashtable
-- `Get-AllRelationships` -- bulk load all SMS_AppRelation_Flat records
-- `Resolve-RelationshipData` -- join CI_IDs with friendly names
+### CM Data Discovery
+- `Get-AllApplicationSummary` -- load all apps via `Get-CMApplication -Fast` into hashtable
+- `Get-AllResolvedRelationships` -- discover all supersedence and dependency relationships via CM cmdlets
 
 ### Analysis
 - `Find-SupersedenceChains` -- extract and analyze supersedence pairs
@@ -145,7 +143,7 @@ supersedenceauditor/
 
 ## Tests
 
-46 Pester 5.x tests covering all module functions. No MECM, WMI, or admin elevation required.
+40 Pester 5.x tests covering analysis, tree building, export, and edge case functions. No MECM or admin elevation required.
 
 ```powershell
 cd Module
