@@ -1,6 +1,6 @@
 # Supersedence & Dependency Auditor
 
-A WinForms-based PowerShell GUI for auditing all application supersedence and dependency relationships in an MECM (Configuration Manager) environment. Discovers relationships via the supported ConfigurationManager PowerShell module cmdlets, detects broken rules, and visualizes hierarchies in a tree view.
+A WinForms-based PowerShell GUI for auditing all application supersedence and dependency relationships in an MECM (Configuration Manager) environment. Retrieves all applications in a single bulk query and parses the embedded SDMPackageXML to discover supersedence and dependency relationships entirely in-memory. Detects broken rules and visualizes hierarchies in a tree view.
 
 ![Supersedence & Dependency Auditor](screenshot.png)
 
@@ -24,7 +24,7 @@ powershell -ExecutionPolicy Bypass -File start-supersedenceauditor.ps1
 
 ## Features
 
-### CM Cmdlet Discovery
+### Bulk Discovery via SDMPackageXML
 
 Uses a single bulk `Get-CMApplication` call (without `-Fast`) to retrieve all applications with their embedded `SDMPackageXML`. Supersedence and dependency relationships are extracted by parsing the XML in-memory using XPath -- zero additional provider round-trips. CI_IDs are resolved to friendly names via O(1) hashtable lookups.
 
