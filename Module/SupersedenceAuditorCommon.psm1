@@ -6,7 +6,7 @@
     Import this module to get:
       - Structured logging (Initialize-Logging, Write-Log)
       - CM site connection management (Connect-CMSite, Disconnect-CMSite, Test-CMConnection)
-      - WMI bulk discovery of applications, deployment types, and relationships
+      - Bulk application query via Get-CMApplication with in-memory SDMPackageXML parsing
       - Relationship resolution and enrichment (CI_ID -> friendly names)
       - Supersedence chain and dependency group analysis
       - Broken rule detection (orphaned, circular, expired, disabled, missing content)
@@ -183,14 +183,16 @@ function Get-AllApplicationSummary {
     .SYNOPSIS
         Queries all applications via the ConfigurationManager module.
     .DESCRIPTION
-        Uses Get-CMApplication -Fast to retrieve all applications through the
-        established CM PSDrive. Returns a hashtable keyed by CI_ID for O(1)
-        lookup during relationship resolution.
+        Uses Get-CMApplication (without -Fast) to retrieve all applications
+        including their SDMPackageXML. The XML contains deployment type,
+        supersedence, and dependency data needed for in-memory relationship
+        resolution -- eliminating hundreds of per-app cmdlet round-trips.
+        Returns a hashtable keyed by CI_ID for O(1) lookup.
     #>
 
-    Write-Log "Querying all applications (Get-CMApplication -Fast)..."
+    Write-Log "Querying all applications (Get-CMApplication)..."
 
-    $raw = @(Get-CMApplication -Fast -ErrorAction Stop)
+    $raw = @(Get-CMApplication -ErrorAction Stop)
 
     $lookup = @{}
     foreach ($app in $raw) {
@@ -211,6 +213,7 @@ function Get-AllApplicationSummary {
             DateLastModified       = $app.DateLastModified
             CreatedBy              = [string]$app.CreatedBy
             LastModifiedBy         = [string]$app.LastModifiedBy
+            SDMPackageXML          = [string]$app.SDMPackageXML
         }
     }
 
@@ -221,18 +224,23 @@ function Get-AllApplicationSummary {
 function Get-AllResolvedRelationships {
     <#
     .SYNOPSIS
-        Discovers all supersedence and dependency relationships via CM cmdlets.
+        Discovers all supersedence and dependency relationships from SDMPackageXML.
     .DESCRIPTION
-        Iterates applications using Get-CMDeploymentType, Get-CMDeploymentTypeSupersedence,
-        Get-CMDeploymentTypeDependencyGroup, and Get-CMDeploymentTypeDependency to build
-        enriched relationship records. Returns the same object shape consumed by
-        Find-SupersedenceChains, Find-DependencyGroups, and related analysis functions.
+        Parses the SDMPackageXML embedded in each application object to extract
+        supersedence and dependency relationships entirely in-memory. This replaces
+        the previous approach of calling Get-CMDeploymentType,
+        Get-CMDeploymentTypeSupersedence, Get-CMDeploymentTypeDependencyGroup, and
+        Get-CMDeploymentTypeDependency per-app, which required thousands of
+        round-trips to the SMS Provider.
+
+        Returns the same object shape consumed by Find-SupersedenceChains,
+        Find-DependencyGroups, and related analysis functions.
     #>
     param(
         [Parameter(Mandatory)][hashtable]$AppLookup
     )
 
-    # Build ModelName -> App index for resolving DT parent apps
+    # Build ModelName -> App index for resolving referenced apps
     $modelToApp = @{}
     foreach ($app in $AppLookup.Values) {
         if ($app.ModelName) { $modelToApp[$app.ModelName] = $app }
@@ -240,61 +248,113 @@ function Get-AllResolvedRelationships {
 
     $results = [System.Collections.Generic.List[object]]::new()
 
-    # Only iterate apps that have deployment types
-    $appsWithDTs = @($AppLookup.Values | Where-Object { $_.NumberOfDeploymentTypes -gt 0 })
-    Write-Log "Checking $($appsWithDTs.Count) applications for relationships..."
+    # Only iterate apps that have deployment types and XML
+    $appsWithDTs = @($AppLookup.Values | Where-Object {
+        $_.NumberOfDeploymentTypes -gt 0 -and $_.SDMPackageXML
+    })
+    Write-Log "Parsing SDMPackageXML for $($appsWithDTs.Count) applications..."
+
+    $nsDigest = 'http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest'
+    $nsRules  = 'https://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules'
 
     foreach ($app in $appsWithDTs) {
-        $dts = @(Get-CMDeploymentType -ApplicationName $app.LocalizedDisplayName -ErrorAction SilentlyContinue)
+        try {
+            [xml]$xml = $app.SDMPackageXML
+        }
+        catch {
+            Write-Log "Failed to parse XML for '$($app.LocalizedDisplayName)': $_" -Level WARN
+            continue
+        }
 
-        foreach ($dt in $dts) {
-            # --- Supersedence (only for apps flagged as superseding) ---
+        $nsm = [System.Xml.XmlNamespaceManager]::new($xml.NameTable)
+        $nsm.AddNamespace('d', $nsDigest)
+        $nsm.AddNamespace('r', $nsRules)
+
+        # Get all DeploymentType elements (top-level, not the refs inside <DeploymentTypes>)
+        $dtNodes = $xml.SelectNodes('/d:AppMgmtDigest/d:DeploymentType', $nsm)
+
+        foreach ($dtNode in $dtNodes) {
+            $dtTitle = ''
+            $titleNode = $dtNode.SelectSingleNode('d:Title', $nsm)
+            if ($titleNode) { $dtTitle = $titleNode.InnerText }
+
+            # --- Supersedence ---
             if ($app.IsSuperseding) {
-                $supersededDTs = @(Get-CMDeploymentTypeSupersedence -InputObject $dt -ErrorAction SilentlyContinue)
-                foreach ($sDT in $supersededDTs) {
-                    $toApp = $null
-                    $sModelName = [string]$sDT.AppModelName
-                    if ($sModelName -and $modelToApp.ContainsKey($sModelName)) {
-                        $toApp = $modelToApp[$sModelName]
-                    }
+                $supRules = $dtNode.SelectNodes('d:Supersedes/r:DeploymentTypeRule', $nsm)
+                foreach ($rule in $supRules) {
+                    $intents = $rule.SelectNodes('.//r:DeploymentTypeIntentExpression', $nsm)
+                    foreach ($intent in $intents) {
+                        $appRef = $intent.SelectSingleNode('r:DeploymentTypeApplicationReference', $nsm)
+                        $dtRef  = $intent.SelectSingleNode('r:DeploymentTypeReference', $nsm)
+                        if (-not $appRef) { continue }
 
-                    $results.Add([PSCustomObject]@{
-                        FromAppCIID      = [int]$app.CI_ID
-                        FromAppName      = $app.LocalizedDisplayName
-                        FromAppVersion   = $app.SoftwareVersion
-                        FromAppExists    = $true
-                        FromDTCIID       = [int]$dt.CI_ID
-                        FromDTName       = [string]$dt.LocalizedDisplayName
-                        ToAppCIID        = if ($toApp) { [int]$toApp.CI_ID } else { 0 }
-                        ToAppName        = if ($toApp) { $toApp.LocalizedDisplayName } else { "Unknown (DT: $($sDT.LocalizedDisplayName))" }
-                        ToAppVersion     = if ($toApp) { $toApp.SoftwareVersion } else { '' }
-                        ToAppExists      = ($null -ne $toApp)
-                        ToDTCIID         = [int]$sDT.CI_ID
-                        ToDTName         = [string]$sDT.LocalizedDisplayName
-                        RelationType     = 6
-                        RelationTypeName = 'Superseded'
-                        Level            = 0
-                    })
+                        $refScope   = $appRef.GetAttribute('AuthoringScopeId')
+                        $refLogical = $appRef.GetAttribute('LogicalName')
+                        $refModel   = "$refScope/$refLogical"
+
+                        $toApp = $null
+                        if ($modelToApp.ContainsKey($refModel)) {
+                            $toApp = $modelToApp[$refModel]
+                        }
+
+                        $toDTName = ''
+                        if ($dtRef) {
+                            $toDTName = '{0}/{1}' -f $dtRef.GetAttribute('AuthoringScopeId'), $dtRef.GetAttribute('LogicalName')
+                        }
+
+                        $results.Add([PSCustomObject]@{
+                            FromAppCIID      = [int]$app.CI_ID
+                            FromAppName      = $app.LocalizedDisplayName
+                            FromAppVersion   = $app.SoftwareVersion
+                            FromAppExists    = $true
+                            FromDTCIID       = 0
+                            FromDTName       = $dtTitle
+                            ToAppCIID        = if ($toApp) { [int]$toApp.CI_ID } else { 0 }
+                            ToAppName        = if ($toApp) { $toApp.LocalizedDisplayName } else { "Unknown ($refModel)" }
+                            ToAppVersion     = if ($toApp) { $toApp.SoftwareVersion } else { '' }
+                            ToAppExists      = ($null -ne $toApp)
+                            ToDTCIID         = 0
+                            ToDTName         = $toDTName
+                            RelationType     = 6
+                            RelationTypeName = 'Superseded'
+                            Level            = 0
+                        })
+                    }
                 }
             }
 
-            # --- Dependencies (check all apps) ---
-            $groups = @(Get-CMDeploymentTypeDependencyGroup -InputObject $dt -ErrorAction SilentlyContinue)
-            foreach ($group in $groups) {
-                $deps = @(Get-CMDeploymentTypeDependency -InputObject $group -ErrorAction SilentlyContinue)
-                foreach ($dep in $deps) {
+            # --- Dependencies ---
+            $depRules = $dtNode.SelectNodes('d:Dependencies/r:DeploymentTypeRule', $nsm)
+            foreach ($rule in $depRules) {
+                $intents = $rule.SelectNodes('.//r:DeploymentTypeIntentExpression', $nsm)
+                foreach ($intent in $intents) {
+                    $appRef = $intent.SelectSingleNode('r:DeploymentTypeApplicationReference', $nsm)
+                    $dtRef  = $intent.SelectSingleNode('r:DeploymentTypeReference', $nsm)
+                    if (-not $appRef) { continue }
+
+                    $refScope   = $appRef.GetAttribute('AuthoringScopeId')
+                    $refLogical = $appRef.GetAttribute('LogicalName')
+                    $refModel   = "$refScope/$refLogical"
+
                     $depApp = $null
-                    $depModelName = [string]$dep.AppModelName
-                    if ($depModelName -and $modelToApp.ContainsKey($depModelName)) {
-                        $depApp = $modelToApp[$depModelName]
+                    if ($modelToApp.ContainsKey($refModel)) {
+                        $depApp = $modelToApp[$refModel]
                     }
 
-                    # Determine Required vs Optional if the property is exposed
+                    $toDTName = ''
+                    if ($dtRef) {
+                        $toDTName = '{0}/{1}' -f $dtRef.GetAttribute('AuthoringScopeId'), $dtRef.GetAttribute('LogicalName')
+                    }
+
+                    # Determine Required vs Optional from DesiredState
+                    $desiredState = $intent.GetAttribute('DesiredState')
                     $relType = 10
                     $relTypeName = 'AppDependence'
-                    if ($dep.PSObject.Properties['IsRequired']) {
-                        if ($dep.IsRequired) { $relType = 2; $relTypeName = 'Required' }
-                        else                 { $relType = 4; $relTypeName = 'Optional' }
+                    if ($desiredState -eq 'Required') {
+                        $relType = 2; $relTypeName = 'Required'
+                    }
+                    elseif ($desiredState -eq 'Optional') {
+                        $relType = 4; $relTypeName = 'Optional'
                     }
 
                     $results.Add([PSCustomObject]@{
@@ -302,14 +362,14 @@ function Get-AllResolvedRelationships {
                         FromAppName      = $app.LocalizedDisplayName
                         FromAppVersion   = $app.SoftwareVersion
                         FromAppExists    = $true
-                        FromDTCIID       = [int]$dt.CI_ID
-                        FromDTName       = [string]$dt.LocalizedDisplayName
+                        FromDTCIID       = 0
+                        FromDTName       = $dtTitle
                         ToAppCIID        = if ($depApp) { [int]$depApp.CI_ID } else { 0 }
-                        ToAppName        = if ($depApp) { $depApp.LocalizedDisplayName } else { "Unknown (DT: $($dep.LocalizedDisplayName))" }
+                        ToAppName        = if ($depApp) { $depApp.LocalizedDisplayName } else { "Unknown ($refModel)" }
                         ToAppVersion     = if ($depApp) { $depApp.SoftwareVersion } else { '' }
                         ToAppExists      = ($null -ne $depApp)
-                        ToDTCIID         = [int]$dep.CI_ID
-                        ToDTName         = [string]$dep.LocalizedDisplayName
+                        ToDTCIID         = 0
+                        ToDTName         = $toDTName
                         RelationType     = $relType
                         RelationTypeName = $relTypeName
                         Level            = 0
@@ -319,7 +379,7 @@ function Get-AllResolvedRelationships {
         }
     }
 
-    Write-Log "Resolved $($results.Count) relationships via CM cmdlets"
+    Write-Log "Resolved $($results.Count) relationships from SDMPackageXML (zero additional provider calls)"
     return @($results)
 }
 

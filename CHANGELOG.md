@@ -2,6 +2,16 @@
 
 All notable changes to the Supersedence & Dependency Auditor are documented in this file.
 
+## [1.2.0] - 2026-03-24
+
+### Changed
+- **Replaced per-app CM cmdlet calls with in-memory SDMPackageXML parsing** -- eliminates thousands of sequential round-trips to the SMS Provider that caused 30+ minute hangs and 100% MP CPU on environments with 650+ applications
+  - `Get-AllApplicationSummary` now uses `Get-CMApplication` (without `-Fast`) to capture `SDMPackageXML` on each app object
+  - `Get-AllResolvedRelationships` parses the embedded XML to extract all supersedence and dependency relationships using XPath, replacing `Get-CMDeploymentType`, `Get-CMDeploymentTypeSupersedence`, `Get-CMDeploymentTypeDependencyGroup`, and `Get-CMDeploymentTypeDependency` per-app calls
+  - Net effect: 1 bulk query + in-memory parsing instead of ~2,000+ provider round-trips
+
+---
+
 ## [1.1.0] - 2026-03-11
 
 ### Changed

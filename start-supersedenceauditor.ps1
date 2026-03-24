@@ -9,7 +9,7 @@
     missing content) and visualizes relationship trees.
 
     Features:
-      - Bulk WMI scan of all applications, deployment types, and relationships
+      - Bulk application query with in-memory SDMPackageXML relationship parsing
       - Supersedence chain discovery with depth calculation
       - Dependency group analysis (Required/Optional)
       - Broken rule detection with remediation guidance
@@ -30,8 +30,8 @@
 
     ScriptName : start-supersedenceauditor.ps1
     Purpose    : WinForms front-end for MECM supersedence and dependency auditing
-    Version    : 1.0.0
-    Updated    : 2026-03-03
+    Version    : 1.2.0
+    Updated    : 2026-03-24
 #>
 
 param()
