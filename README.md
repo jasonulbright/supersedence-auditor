@@ -26,13 +26,7 @@ powershell -ExecutionPolicy Bypass -File start-supersedenceauditor.ps1
 
 ### CM Cmdlet Discovery
 
-Uses supported ConfigurationManager PowerShell module cmdlets through the established CM PSDrive:
-
-- `Get-CMApplication -Fast` for all applications
-- `Get-CMDeploymentType` / `Get-CMDeploymentTypeSupersedence` for supersedence relationships
-- `Get-CMDeploymentTypeDependencyGroup` / `Get-CMDeploymentTypeDependency` for dependency relationships
-
-CI_IDs are resolved to friendly names via O(1) hashtable lookups.
+Uses a single bulk `Get-CMApplication` call (without `-Fast`) to retrieve all applications with their embedded `SDMPackageXML`. Supersedence and dependency relationships are extracted by parsing the XML in-memory using XPath -- zero additional provider round-trips. CI_IDs are resolved to friendly names via O(1) hashtable lookups.
 
 ### Supersedence Tab
 
@@ -121,8 +115,8 @@ supersedenceauditor/
 - `Test-CMConnection` -- check if connected
 
 ### CM Data Discovery
-- `Get-AllApplicationSummary` -- load all apps via `Get-CMApplication -Fast` into hashtable
-- `Get-AllResolvedRelationships` -- discover all supersedence and dependency relationships via CM cmdlets
+- `Get-AllApplicationSummary` -- load all apps via `Get-CMApplication` (with SDMPackageXML) into hashtable
+- `Get-AllResolvedRelationships` -- parse SDMPackageXML to extract all supersedence and dependency relationships in-memory
 
 ### Analysis
 - `Find-SupersedenceChains` -- extract and analyze supersedence pairs
