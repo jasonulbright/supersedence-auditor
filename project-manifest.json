@@ -3,5 +3,5 @@
   "Status": "active",
   "Category": "MECM",
   "ValidationSchedule": "monthly",
-  "Notes": "Application supersedence/dependency auditing via SDMPackageXML. Stable."
+  "Notes": "Application supersedence/dependency auditing via SDMPackageXML. Stable. Pending: C# + Fluent UI conversion."
 }
