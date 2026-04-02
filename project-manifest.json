@@ -1,0 +1,8 @@
+{
+  "ProjectType": "mecm-tool",
+  "Description": "MECM application supersedence and dependency relationship auditor",
+  "Status": "active",
+  "Category": "MECM",
+  "ValidationSchedule": "monthly",
+  "Notes": "TASK: C# + Fluent UI conversion\nINFO: Application supersedence/dependency auditing via SDMPackageXML\nINFO: Stable"
+}
