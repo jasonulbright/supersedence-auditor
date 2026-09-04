@@ -19,7 +19,7 @@ log drawer, and status bar. Status conveyed via glyph, not row color
 
 .NOTES
     ScriptName : start-supersedenceauditor.ps1
-    Version    : 1.0.0
+    Version    : 1.0.1
     Updated    : 2026-05-02
 #>
 
@@ -29,6 +29,16 @@ log drawer, and status bar. Status conveyed via glyph, not row color
 param()
 
 $ErrorActionPreference = 'Stop'
+
+# A Windows PowerShell process launched from PowerShell 7 inherits the 7.x
+# module directories at the front of PSModulePath; the background runspace
+# opened later would autoload Microsoft.PowerShell.Utility from the 7.x
+# manifest, which carries no Get-FileHash / ConvertFrom-Json under 5.1.
+# Strip those roots from the process environment before any runspace opens.
+$__winPsModules = Join-Path $PSHOME 'Modules'
+$__moduleRoots = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -notmatch '(?i)[\\/]PowerShell[\\/](7[\\/]|Modules)|microsoft\.powershell_' })
+if ($__moduleRoots -notcontains $__winPsModules) { $__moduleRoots = @($__winPsModules) + $__moduleRoots }
+$env:PSModulePath = ($__moduleRoots -join ';')
 
 # =============================================================================
 # Startup transcript (best-effort).
@@ -135,6 +145,13 @@ $window = [System.Windows.Markup.XamlReader]::Load($reader)
 
 $txtAppTitle        = $window.FindName('txtAppTitle')
 $txtVersion         = $window.FindName('txtVersion')
+# Installed version: the script header is the single source of truth for the
+# sidebar label and the About panel.
+$script:AppVersion = '0.0.0'
+foreach ($headerLine in (Get-Content -LiteralPath $PSCommandPath -TotalCount 80)) {
+    if ($headerLine -match '^\s*Version\s*:\s*([0-9][0-9\.]*[0-9])\s*$') { $script:AppVersion = $Matches[1]; break }
+}
+if ($txtVersion) { $txtVersion.Text = 'v' + $script:AppVersion }
 $txtThemeLabel      = $window.FindName('txtThemeLabel')
 $toggleTheme        = $window.FindName('toggleTheme')
 
@@ -1383,6 +1400,8 @@ function Show-OptionsDialog {
     $btnCatAbout      = $dlg.FindName('btnCatAbout')
     $paneConnection   = $dlg.FindName('paneConnection')
     $paneAbout        = $dlg.FindName('paneAbout')
+    $txtAboutVersion  = $dlg.FindName('txtAboutVersion')
+    if ($txtAboutVersion) { $txtAboutVersion.Text = ($txtAboutVersion.Text -replace 'v[0-9][0-9\.]*[0-9]\s*$', ('v' + $script:AppVersion)) }
     $txtSiteCode      = $dlg.FindName('txtSiteCode')
     $txtSmsProvider   = $dlg.FindName('txtSmsProvider')
     $btnOk            = $dlg.FindName('btnOk')

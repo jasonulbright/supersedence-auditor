@@ -3,6 +3,20 @@
 All notable changes to Supersedence and Dependency Auditor are
 documented in this file.
 
+## [1.0.1] - 2026-09-04
+
+### Fixed
+
+- **Background runspace survives a PowerShell 7 launch.** A Windows
+  PowerShell process started from PowerShell 7 inherits the 7.x module
+  directories at the front of PSModulePath, and the background runspace
+  opened later autoloaded a Microsoft.PowerShell.Utility without
+  Get-FileHash or ConvertFrom-Json. The entry script strips those roots
+  from the process environment before any runspace opens.
+- **Version labels read the script header.** The sidebar version and the
+  About panel carried literal version strings that no release updated;
+  both now read the entry script's `Version` header at startup.
+
 ## [1.0.0] - 2026-05-02
 
 Supersedence and Dependency Auditor maps every supersedence and
