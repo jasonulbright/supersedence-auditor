@@ -19,7 +19,7 @@ log drawer, and status bar. Status conveyed via glyph, not row color
 
 .NOTES
     ScriptName : start-supersedenceauditor.ps1
-    Version    : 2026.09.21.0003
+    Version    : 2026.09.21.0004
     Updated    : 2026-09-21
 #>
 
@@ -125,6 +125,11 @@ function Save-SaPreferences {
 }
 
 $global:Prefs = Get-SaPreferences
+
+# The suite launcher hands its site code and provider to each tool it starts.
+# A value saved in this tool wins; the launcher value fills an empty one.
+if (-not $global:Prefs.SiteCode    -and $env:SUITE_CM_SITECODE) { $global:Prefs.SiteCode    = [string]$env:SUITE_CM_SITECODE }
+if (-not $global:Prefs.SMSProvider -and $env:SUITE_CM_PROVIDER) { $global:Prefs.SMSProvider = [string]$env:SUITE_CM_PROVIDER }
 
 # =============================================================================
 # Tool log.

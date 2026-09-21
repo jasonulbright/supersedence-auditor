@@ -3,6 +3,16 @@
 All notable changes to Supersedence and Dependency Auditor are
 documented in this file.
 
+## [2026.09.21.0004] - 2026-09-21
+
+### Fixed
+
+- Use the site code and provider from the suite launcher when the tool has none saved.
+
+### Changed
+
+- Update the README screenshot.
+
 ## [2026.09.21.0003] - 2026-09-21
 
 ### Changed
