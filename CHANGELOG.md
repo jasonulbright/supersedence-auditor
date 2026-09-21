@@ -3,6 +3,13 @@
 All notable changes to Supersedence and Dependency Auditor are
 documented in this file.
 
+## [2026.09.21.0003] - 2026-09-21
+
+### Changed
+
+- Use the product name Configuration Manager in the application and the documentation.
+- Use date versions.
+
 ## [1.0.1] - 2026-09-04
 
 ### Fixed

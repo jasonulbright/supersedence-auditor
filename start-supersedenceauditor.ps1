@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    MahApps.Metro WPF shell for the Supersedence and Dependency Auditor.
+    Main window of the Supersedence and Dependency Auditor, a tool that maps application supersedence and dependency relationships in Configuration Manager.
 
 .DESCRIPTION
     Replaces the v1.0.x WinForms shell with a brand-aligned WPF UI: sidebar
@@ -19,8 +19,8 @@ log drawer, and status bar. Status conveyed via glyph, not row color
 
 .NOTES
     ScriptName : start-supersedenceauditor.ps1
-    Version    : 1.0.1
-    Updated    : 2026-05-02
+    Version    : 2026.09.21.0003
+    Updated    : 2026-09-21
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification='Per feedback_ps_wpf_handler_rules.md and PS51-WPF-001..003: flat-.ps1 GetNewClosure strips $script: scope. $global: survives closure scope-strip and keeps shared mutable state reachable from closure-captured handlers.')]
@@ -1343,7 +1343,7 @@ function Show-OptionsDialog {
         <Grid Grid.Column="2" Grid.Row="0" Margin="20,16,20,16">
 
             <StackPanel x:Name="paneConnection" Visibility="Visible">
-                <TextBlock Text="MECM Connection" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <TextBlock Text="Configuration Manager Connection" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
                 <TextBlock Text="Site Code" FontSize="11" Margin="0,4,0,2"
                            Foreground="{DynamicResource MahApps.Brushes.Gray1}"/>
                 <TextBox x:Name="txtSiteCode" FontSize="12" Padding="6,4,6,4"
@@ -1361,7 +1361,7 @@ function Show-OptionsDialog {
                 <TextBlock Text="About" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
                 <TextBlock x:Name="txtAboutVersion" Text="Supersedence and Dependency Auditor v1.0.0"
                            FontSize="13" FontWeight="SemiBold"/>
-                <TextBlock Text="Maps every supersedence and dependency relationship in your MECM environment from a single bulk Get-CMApplication query plus in-memory SDMPackageXML parse. Detects orphans, circular chains, expired targets, disabled sources, missing content, and undocumented apps."
+                <TextBlock Text="Maps every supersedence and dependency relationship in your Configuration Manager environment from a single bulk Get-CMApplication query plus in-memory SDMPackageXML parse. Detects orphans, circular chains, expired targets, disabled sources, missing content, and undocumented apps."
                            FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>
                 <TextBlock Text="Read-only. No Set / New / Remove / Add cmdlets are called against the SMS Provider."
                            FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0"/>

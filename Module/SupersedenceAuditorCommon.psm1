@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Core module for MECM Supersedence & Dependency Auditor.
+    Core module for the Supersedence and Dependency Auditor.
 
 .DESCRIPTION
     Import this module to get:
@@ -751,7 +751,7 @@ function Find-BrokenDependencies {
             Category    = 'Dependency'
             FromApp     = $appName
             ToApp       = '(cycle participant)'
-            Description = "Application '$appName' is part of a circular dependency chain. MECM enforces a max depth of 5."
+            Description = "Application '$appName' is part of a circular dependency chain. Configuration Manager enforces a max depth of 5."
             Remediation = "Trace the dependency chain from this application to find and break the loop."
         }
     }

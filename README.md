@@ -1,6 +1,11 @@
 # Supersedence and Dependency Auditor
 
-A MahApps.Metro WPF tool for auditing every application supersedence and dependency relationship in an MECM (Configuration Manager) environment. Retrieves all applications in a single bulk `Get-CMApplication` call and parses the embedded SDMPackageXML to resolve every relationship entirely in-memory. Detects broken rules and visualizes hierarchies in a tree view. Read-only by design: only `Get-CMSite` and `Get-CMApplication` are called, never any `Set-` / `New-` / `Remove-` / `Add-` cmdlet.
+[![Latest release](https://img.shields.io/github/v/release/jasonulbright/supersedence-auditor?label=release)](https://github.com/jasonulbright/supersedence-auditor/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/jasonulbright/supersedence-auditor/total?label=downloads)](https://github.com/jasonulbright/supersedence-auditor/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
+[![License](https://img.shields.io/github/license/jasonulbright/supersedence-auditor)](LICENSE)
+
+Audit every application supersedence and dependency relationship in a Configuration Manager environment. Retrieves all applications in a single bulk `Get-CMApplication` call and parses the embedded SDMPackageXML to resolve every relationship entirely in-memory. Detects broken rules and visualizes hierarchies in a tree view. Read-only by design: only `Get-CMSite` and `Get-CMApplication` are called, never any `Set-` / `New-` / `Remove-` / `Add-` cmdlet.
 
 ![Supersedence and Dependency Auditor](screenshots/main-dark.png)
 

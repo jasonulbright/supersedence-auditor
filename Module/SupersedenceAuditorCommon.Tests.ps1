@@ -7,7 +7,7 @@
 .DESCRIPTION
     Tests pure-logic functions: logging, relationship resolution, supersedence
     chain analysis, dependency group analysis, broken rule detection, circular
-    detection, tree building, export, and summary text. Does NOT require MECM,
+    detection, tree building, export, and summary text. Does NOT require ConfigMgr,
     WMI, or administrator elevation.
 
 .EXAMPLE
