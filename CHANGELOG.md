@@ -3,6 +3,15 @@
 All notable changes to Supersedence and Dependency Auditor are
 documented in this file.
 
+## [2026.09.25.0005] - 2026-09-25
+
+## Final release: every feature continues in Site Hygiene
+
+### Changed
+
+- Retire this tool; Site Hygiene carries the scan, the checks, the inventory, and the trees.
+- Point the README at Site Hygiene and at the suite installer's migration of local files.
+
 ## [2026.09.21.0004] - 2026-09-21
 
 ### Fixed

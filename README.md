@@ -5,6 +5,10 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
 [![License](https://img.shields.io/github/license/jasonulbright/supersedence-auditor)](LICENSE)
 
+## Retired
+
+This is the final release. Site Hygiene carries every feature of this tool: the same bulk `SDMPackageXML` scan, the broken-rule checks (SUP-01..04, DEP-01..05, REL-01), the relationship inventory with healthy rows, filtering, and CSV/HTML export, and the supersedence and dependency trees. Install Site Hygiene from https://github.com/jasonulbright/site-hygiene or from the AppPackager Suite installer. The suite installer zips this tool's folder to `site-hygiene\legacy\supersedence-auditor.zip`, keeps its json files, logs, and reports under `site-hygiene\legacy\supersedence-auditor\`, and removes the folder; a side-by-side zip install can be deleted by hand. This repository is archived.
+
 Audit every application supersedence and dependency relationship in a Configuration Manager environment. Retrieves all applications in a single bulk `Get-CMApplication` call and parses the embedded SDMPackageXML to resolve every relationship entirely in-memory. Detects broken rules and visualizes hierarchies in a tree view. Read-only by design: only `Get-CMSite` and `Get-CMApplication` are called, never any `Set-` / `New-` / `Remove-` / `Add-` cmdlet.
 
 ![Supersedence and Dependency Auditor](screenshots/main-dark.png)

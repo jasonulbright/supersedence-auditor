@@ -1,6 +1,6 @@
 @{
     RootModule        = 'SupersedenceAuditorCommon.psm1'
-    ModuleVersion     = '2026.09.21.0004'
+    ModuleVersion     = '2026.09.25.0005'
     GUID              = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
     Author            = 'Jason Ulbright'
     Description       = 'Supersedence and dependency auditor for Configuration Manager applications - relationship discovery, broken rule detection, tree visualization.'

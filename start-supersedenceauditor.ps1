@@ -19,7 +19,7 @@ log drawer, and status bar. Status conveyed via glyph, not row color
 
 .NOTES
     ScriptName : start-supersedenceauditor.ps1
-    Version    : 2026.09.21.0004
+    Version    : 2026.09.25.0005
     Updated    : 2026-09-21
 #>
 
